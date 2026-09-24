@@ -119,6 +119,51 @@ def find_best_bid(instance_type, availability_zone, operating_system,
             }
 
     return best_bid, best_utility, best_details
+def compare_strategies(instance_type, availability_zone, operating_system,
+                        hour, day_of_week, runtime_hours, budget, risk_profile):
+    """
+    Compares the AI-recommended bid against fixed baseline bidding strategies.
+    Returns a list of dicts, one per strategy.
+    """
+    predicted_price, res_std = get_price_prediction(
+        hour, day_of_week, instance_type, availability_zone, operating_system
+    )
+
+    recommendation = get_recommendation(
+        instance_type, availability_zone, operating_system,
+        hour, day_of_week, runtime_hours, budget, risk_profile
+    )
+
+    strategies = []
+
+    # AI Recommended
+    strategies.append({
+        "Strategy": "AI Recommended",
+        "Bid ($/hr)": recommendation["recommended_bid"],
+        "Expected Cost ($)": recommendation["expected_cost"],
+        "Interruption Risk (%)": recommendation["interruption_probability"],
+        "Completion Probability (%)": recommendation["completion_probability"]
+    })
+
+    # Fixed baseline strategies: match predicted price, 20% above, 20% below
+    baseline_bids = {
+        "Match Market Price": predicted_price,
+        "Conservative Fixed (+20%)": predicted_price * 1.2,
+        "Aggressive Fixed (-20%)": predicted_price * 0.8,
+    }
+
+    for name, bid in baseline_bids.items():
+        p_interrupt = get_interruption_probability(bid, predicted_price, res_std, runtime_hours)
+        expected_cost = bid * runtime_hours
+        strategies.append({
+            "Strategy": name,
+            "Bid ($/hr)": round(bid, 4),
+            "Expected Cost ($)": round(expected_cost, 2),
+            "Interruption Risk (%)": round(p_interrupt * 100, 2),
+            "Completion Probability (%)": round((1 - p_interrupt) * 100, 2)
+        })
+
+    return strategies, predicted_price
 if __name__ == "__main__":
     test_cases = [
         {"instance_type": "m4.xlarge", "availability_zone": "us-east-1a",
