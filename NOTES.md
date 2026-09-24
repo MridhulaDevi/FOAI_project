@@ -40,7 +40,7 @@
 - Saved model + feature columns + residual_std to src/utils/price_model.pkl
   using joblib
 
-## Day 4 (next)
+## Day 4 (done)
 - Build src/search.py — Expectiminimax core algorithm
 - Decision nodes = candidate bid choices
 - Chance nodes = price outcome probabilities, built from:
@@ -48,24 +48,24 @@
 - Utility function = score based on cost, interruption risk, deadline satisfaction
 - Pick bid with highest expected utility
 
-## Day 5 (planned)
+## Day 5 (done)
 - Connect ML model output -> chance-node probabilities -> Expectiminimax search
 - Test end-to-end: input -> prediction -> search -> recommended bid
 
-## Day 6 (planned)
+## Day 6 (done)
 - Build src/explain.py — forward-chaining rule engine
 - IF-THEN rules over volatility, deadline slack, budget headroom, risk profile
 - Generate plain-language explanation for recommended bid
 
-## Day 7 (planned)
+## Day 7 (done)
 - Build dashboard input form in app.py
 - Inputs: cloud provider, instance type, runtime, budget, deadline, risk profile
 
-## Day 8 (planned)
+## Day 8 (done)
 - Wire dashboard inputs -> backend pipeline (ML + search + explain) -> outputs
 - Display: recommended bid, cost, completion probability, savings, risk, explanation
 
-## Day 9 (planned)
+## Day 9 (done)
 - Add Plotly charts: historical price trend + predicted trend overlay
 - Strategy comparison table (recommended vs. fixed-bid baselines)
 
