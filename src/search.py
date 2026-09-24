@@ -120,21 +120,68 @@ def find_best_bid(instance_type, availability_zone, operating_system,
 
     return best_bid, best_utility, best_details
 if __name__ == "__main__":
+    test_cases = [
+        {"instance_type": "m4.xlarge", "availability_zone": "us-east-1a",
+         "operating_system": "Linux/UNIX", "hour": 9, "day_of_week": 0,
+         "runtime_hours": 2, "budget": 3.0, "risk_profile": "Conservative"},
+
+        {"instance_type": "m4.xlarge", "availability_zone": "us-east-1a",
+         "operating_system": "Linux/UNIX", "hour": 9, "day_of_week": 0,
+         "runtime_hours": 2, "budget": 3.0, "risk_profile": "Aggressive"},
+
+        {"instance_type": "c3.4xlarge", "availability_zone": "us-east-1d",
+         "operating_system": "Linux/UNIX", "hour": 22, "day_of_week": 5,
+         "runtime_hours": 6, "budget": 10.0, "risk_profile": "Balanced"},
+    ]
+
+    for i, case in enumerate(test_cases):
+        bid, utility, details = find_best_bid(**case)
+        print(f"\n--- Test Case {i+1} ({case['risk_profile']}) ---")
+        print(f"Recommended Bid: ${bid:.4f}/hr")
+        print(f"Predicted Price: ${details['predicted_price']:.4f}")
+        print(f"Interruption Probability: {details['interruption_probability']*100:.2f}%")
+        print(f"Expected Cost: ${details['expected_cost']:.2f}")
+def get_recommendation(instance_type, availability_zone, operating_system,
+                        hour, day_of_week, runtime_hours, budget, risk_profile):
+    """
+    Main entry point for the dashboard to call.
+    Returns a clean dictionary of results.
+    """
     bid, utility, details = find_best_bid(
-        instance_type="m4.xlarge",
-        availability_zone="us-east-1a",
-        operating_system="Linux/UNIX",
-        hour=14,
-        day_of_week=2,
-        runtime_hours=4,
-        budget=5.0,
-        risk_profile="Balanced"
+        instance_type=instance_type,
+        availability_zone=availability_zone,
+        operating_system=operating_system,
+        hour=hour,
+        day_of_week=day_of_week,
+        runtime_hours=runtime_hours,
+        budget=budget,
+        risk_profile=risk_profile
     )
 
-    print("\n--- RESULT ---")
-    print(f"Recommended Bid: ${bid:.4f}/hr")
-    print(f"Utility Score: {utility:.4f}")
-    print(f"Predicted Price: ${details['predicted_price']:.4f}")
-    print(f"Interruption Probability: {details['interruption_probability']*100:.2f}%")
-    print(f"Completion Probability: {details['completion_probability']*100:.2f}%")
-    print(f"Expected Cost: ${details['expected_cost']:.2f}")
+    on_demand_estimate = details["predicted_price"] * 3  # rough placeholder multiplier
+    savings = (on_demand_estimate - details["expected_cost"])
+    savings_pct = (savings / on_demand_estimate) * 100 if on_demand_estimate > 0 else 0
+
+    risk_level = "Low"
+    if details["interruption_probability"] > 0.4:
+        risk_level = "High"
+    elif details["interruption_probability"] > 0.15:
+        risk_level = "Medium"
+
+    return {
+        "recommended_bid": round(bid, 4),
+        "expected_cost": round(details["expected_cost"], 2),
+        "completion_probability": round(details["completion_probability"] * 100, 2),
+        "interruption_probability": round(details["interruption_probability"] * 100, 2),
+        "estimated_savings": round(savings, 2),
+        "estimated_savings_pct": round(savings_pct, 2),
+        "risk_level": risk_level,
+        "predicted_price": round(details["predicted_price"], 4)
+    }
+    print("\n--- Wrapper Function Test ---")
+    result = get_recommendation(
+        instance_type="m4.xlarge", availability_zone="us-east-1a",
+        operating_system="Linux/UNIX", hour=14, day_of_week=2,
+        runtime_hours=4, budget=5.0, risk_profile="Balanced"
+    )
+    print(result)
