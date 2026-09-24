@@ -45,3 +45,15 @@ if __name__ == "__main__":
     print("\nSpotPrice range:", df["SpotPrice"].min(), "to", df["SpotPrice"].max())
     print("\nMissing values check:")
     print(df.isnull().sum())
+def get_price_history(instance_type, availability_zone, filepath="data/us-east-1.csv"):
+    """
+    Returns historical SpotPrice + Timestamp for a given instance/zone,
+    used for the dashboard's price trend chart.
+    """
+    df = load_and_clean(filepath)
+    filtered = df[
+        (df["InstanceType"] == instance_type) &
+        (df["AvailabilityZone"] == availability_zone)
+    ][["Timestamp", "SpotPrice"]].sort_values("Timestamp")
+
+    return filtered
