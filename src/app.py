@@ -13,7 +13,7 @@ from clean_data import get_price_history
 st.set_page_config(page_title="SpotWise AI", layout="wide")
 
 st.title("SpotWise AI – Intelligent Cloud Spot Instance Bidding Advisor")
-st.write("Get an AI-recommended bid for your cloud spot instance job.")
+st.write("Alpha-beta pruning search for the best spot instance bid.")
 
 st.divider()
 
@@ -24,20 +24,14 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     provider = st.selectbox("Cloud Provider", ["AWS"])
-    instance_type = st.selectbox(
-        "Instance Type",
-        ["m4.xlarge", "c3.4xlarge", "r3.large"]
-    )
+    instance_type = st.selectbox("Instance Type", ["m4.xlarge", "c3.4xlarge", "r3.large"])
     availability_zone = st.selectbox(
         "Availability Zone",
         ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1e"]
     )
 
 with col2:
-    operating_system = st.selectbox(
-        "Operating System",
-        ["Linux/UNIX", "Windows", "SUSE Linux"]
-    )
+    operating_system = st.selectbox("Operating System", ["Linux/UNIX", "Windows", "SUSE Linux"])
     runtime_hours = st.number_input("Runtime (hours)", min_value=1, max_value=48, value=4)
     deadline_hours = st.number_input("Deadline (hours from now)", min_value=1, max_value=72, value=6)
 
@@ -51,7 +45,7 @@ st.divider()
 
 # ---------------- RUN BUTTON ----------------
 if st.button("Get Recommendation", type="primary"):
-    with st.spinner("Running Expectiminimax search..."):
+    with st.spinner("Running alpha-beta search (first run loads the dataset, please wait)..."):
         recommendation = get_recommendation(
             instance_type=instance_type,
             availability_zone=availability_zone,
@@ -60,8 +54,13 @@ if st.button("Get Recommendation", type="primary"):
             day_of_week=day_of_week,
             runtime_hours=runtime_hours,
             budget=budget,
-            risk_profile=risk_profile
+            risk_profile=risk_profile,
+            deadline_hours=deadline_hours
         )
+
+        if recommendation.get("infeasible"):
+            st.error(recommendation["reason"])
+            st.stop()
 
         explanation_text, facts = get_explanation(
             recommendation=recommendation,
@@ -71,7 +70,7 @@ if st.button("Get Recommendation", type="primary"):
             risk_profile=risk_profile
         )
 
-        strategies, predicted_price = compare_strategies(
+        strategies, median_price = compare_strategies(
             instance_type=instance_type,
             availability_zone=availability_zone,
             operating_system=operating_system,
@@ -98,11 +97,19 @@ if st.button("Get Recommendation", type="primary"):
     m5, m6, m7 = st.columns(3)
     m5.metric("Interruption Probability", f"{recommendation['interruption_probability']}%")
     m6.metric("Estimated Savings", f"${recommendation['estimated_savings']} ({recommendation['estimated_savings_pct']}%)")
-    m7.metric("Predicted Market Price", f"${recommendation['predicted_price']}/hr")
+    m7.metric("Typical (Median) Price", f"${recommendation['predicted_price']}/hr")
+
+    st.caption(
+        f"Alpha-beta search: {recommendation['nodes_visited']} nodes visited "
+        f"(plain minimax would visit {recommendation['nodes_without_pruning']}), "
+        f"{recommendation['pruning_cutoffs']} pruning cutoffs."
+    )
+    st.caption(f"Max spend (bid ceiling): ${recommendation['max_cost']}")
 
     # ---------------- EXPLANATION ----------------
     st.subheader("Explainable Reasoning")
     st.info(explanation_text)
+    st.caption("Forward-chaining rules fired: " + ", ".join(facts["rules_fired"]))
 
     # ---------------- PRICE TREND CHART ----------------
     st.subheader("Historical Price Trend")
@@ -118,29 +125,22 @@ if st.button("Get Recommendation", type="primary"):
         ))
         fig.add_hline(
             y=recommendation["recommended_bid"],
-            line_dash="dash",
-            line_color="green",
+            line_dash="dash", line_color="green",
             annotation_text="Recommended Bid"
         )
         fig.add_hline(
-            y=predicted_price,
-            line_dash="dot",
-            line_color="orange",
-            annotation_text="Predicted Price"
+            y=median_price,
+            line_dash="dot", line_color="orange",
+            annotation_text="Median Price"
         )
-        fig.update_layout(
-            xaxis_title="Time",
-            yaxis_title="Spot Price ($/hr)",
-            height=400
-        )
+        fig.update_layout(xaxis_title="Time", yaxis_title="Spot Price ($/hr)", height=400)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("No historical data available for this instance type / zone combination.")
 
-    # ---------------- STRATEGY COMPARISON TABLE ----------------
+    # ---------------- STRATEGY COMPARISON ----------------
     st.subheader("Strategy Comparison")
-    comparison_df = pd.DataFrame(strategies)
-    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(strategies), use_container_width=True, hide_index=True)
 
 st.divider()
-st.caption("SpotWise AI — built with Expectiminimax search, ML price prediction, and rule-based explanation.")
+st.caption("SpotWise AI — alpha-beta pruning search, CSP constraints, and forward-chaining explanations.")
