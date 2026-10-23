@@ -41,7 +41,9 @@ def get_price_stats(instance_type, availability_zone, operating_system,
     """
     Returns a SORTED numpy array of historical spot prices for the chosen
     instance / zone / OS. If enough rows exist for the given hour of day,
-    only that hour is used. No model, no training - just filtering data.
+    only that hour is used. The top 1% of prices is dropped as a basic
+    data-quality step (likely glitch rows, not genuine market prices) -
+    this is descriptive cleaning, not a trained model.
     """
     df = get_data()
     seg = df[
@@ -53,7 +55,12 @@ def get_price_stats(instance_type, availability_zone, operating_system,
         seg_hour = seg[seg["Hour"] == hour]
         if len(seg_hour) >= min_rows:
             seg = seg_hour
-    return np.sort(seg["SpotPrice"].to_numpy())
+
+    prices = np.sort(seg["SpotPrice"].to_numpy())
+    if len(prices) > 20:
+        cutoff = np.percentile(prices, 99)
+        prices = prices[prices <= cutoff]
+    return prices
 
 
 def get_price_history(instance_type, availability_zone, filepath="data/us-east-1.csv"):
